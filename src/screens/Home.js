@@ -214,9 +214,14 @@ const DriverHome = ({ navigation }) => {
                 }
               });
 
+              // Yeni sipariş ID'sini kaydet
+              await axios.put(`http://192.168.100.43:3000/api/drivers/${driverId}`, { lastOrderId: order._id }, {
+                headers: { 'Authorization': `Bearer ${token}` }
+              });
+
               await updateDriverLimit(driverId, order.price);
               await updateDriverDailyEarnings(driverId, order.price);
-              await updateDriverDailyOrderCount(driverId)
+              await updateDriverDailyOrderCount(driverId);
               fetchDriverDetails();
               fetchLimit();
               setOrders(orders.filter(o => o._id !== order._id));
@@ -332,7 +337,7 @@ const DriverHome = ({ navigation }) => {
           <Text onPress={() => setModalVisible(true)} style={styles.averageRatingText}>Ortalama Xal: {averageRating}</Text>
         </View>
       </View>
-      
+
       <Modal
         animationType="slide"
         transparent={true}

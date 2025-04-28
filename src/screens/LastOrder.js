@@ -1,117 +1,121 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, ScrollView, StyleSheet } from 'react-native';
+import Icon from 'react-native-vector-icons/MaterialIcons';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const LastOrder = ({ navigation }) => {
-  const [lastOrder, setLastOrder] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+    const [lastOrder, setLastOrder] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
-  useEffect(() => {
+    useEffect(() => {
+        fetchLastOrder();
+    }, []);
+
     const fetchLastOrder = async () => {
-      try {
-        const token = await AsyncStorage.getItem('token'); 
-        const driverId = await AsyncStorage.getItem('driverId'); 
-  
-        if (driverId) {
-          const response = await axios.get(`http://192.168.100.43:3000/api/drivers/my-orders/${driverId}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          
-          if (response.data && response.data.length > 0) {
-            setLastOrder(response.data[0]); 
-          } else {
-            setError('No orders found.');
-          }
+        try {
+            const token = await AsyncStorage.getItem('token');
+            const driverId = await AsyncStorage.getItem('driverId');
+
+            const response = await axios.get(`http://192.168.100.43:3000/api/drivers/${driverId}/last-order`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            setLastOrder(response.data);
+        } catch (error) {
+            setError('Son sipariş alınırken bir hata oluştu.');
+            console.error("Son sipariş hata: ", error);
+        } finally {
+            setLoading(false);
         }
-      } catch (err) {
-        setError('Failed to fetch the last order. Please try again.');
-        console.error('Error fetching last order: ', err);
-        // additional debugging information can be logged here
-      } finally {
-        setLoading(false);
-      }
     };
-  
-    fetchLastOrder();
-  }, []);
 
-  if (loading) {
-    return <Text>Loading...</Text>;
-  }
+    if (loading) return <Text style={styles.loadingText}>Yükleniyor...</Text>;
+    if (error) return <Text style={styles.errorText}>{error}</Text>;
 
-  if (error) {
-    return <Text style={styles.errorText}>{error}</Text>;
-  }
+    if (!lastOrder) {
+        return <Text style={styles.infoText}>Henüz bir sipariş yok.</Text>;
+    }
 
-  if (!lastOrder) {
-    return <Text>No last order available.</Text>;
-  }
+    return (
+        <ScrollView contentContainerStyle={styles.container}>
+            <Text style={styles.header}>Son Sipariş Detayları</Text>
+            <InfoContainer title="Müştəri Adresi" value={lastOrder.currentAddress} />
+            <InfoContainer title="Gedilecek Adres" value={lastOrder.destinationAddress} />
+            <InfoContainer title="Ad" value={lastOrder.name} />
+            <InfoContainer title="Telefon" value={lastOrder.tel} />
+            <InfoContainer title="Qiymet" value={`${lastOrder.price.toFixed(2)} AZN`} />
 
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Last Order Details</Text>
-      <View style={styles.orderDetails}>
-        <Text style={styles.label}>Current Address:</Text>
-        <Text style={styles.value}>{lastOrder.currentAddress}</Text>
-        
-        <Text style={styles.label}>Destination Address:</Text>
-        <Text style={styles.value}>{lastOrder.destinationAddress}</Text>
-        
-        <Text style={styles.label}>Price:</Text>
-        <Text style={styles.value}>{lastOrder.price.toFixed(2)} AZN</Text>
-        
-        <TouchableOpacity style={styles.button} onPress={() => navigation.goBack()}>
-          <Text style={styles.buttonText}>Go Back</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+            <TouchableOpacity
+                style={styles.backButton}
+                onPress={() => navigation.goBack()}
+            >
+                <Text style={styles.backButtonText}>Geri Dön</Text>
+            </TouchableOpacity>
+        </ScrollView>
+    );
+}
+
+const InfoContainer = ({ title, value }) => {
+    return (
+        <View style={styles.infoContainer}>
+            <Text style={styles.infoTitle}>{title}:</Text>
+            <Text style={styles.infoValue}>{value}</Text>
+        </View>
+    );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-  },
-  orderDetails: {
-    padding: 20,
-    borderRadius: 10,
-    backgroundColor: '#f8f8f8',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 5, // For Android shadow
-  },
-  label: {
-    fontWeight: 'bold',
-  },
-  value: {
-    marginBottom: 15,
-  },
-  button: {
-    backgroundColor: '#4CAF50',
-    padding: 10,
-    borderRadius: 5,
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  errorText: {
-    color: 'red',
-    textAlign: 'center',
-    marginTop: 20,
-  },
+    container: {
+        flexGrow: 1,
+        padding: 16,
+        backgroundColor: '#f7f7f7',
+    },
+    header: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        marginBottom: 16,
+        textAlign: 'center',
+    },
+    infoContainer: {
+        marginBottom: 12,
+        padding: 12,
+        backgroundColor: 'black',
+        borderRadius: 8,
+        shadowColor: '#000',
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    infoTitle: {
+        fontWeight: 'bold',
+        fontSize: 16,
+    },
+    infoValue: {
+        fontSize: 14,
+        marginTop: 4,
+    },
+    loadingText: {
+        textAlign: 'center',
+        marginTop: 20,
+    },
+    errorText: {
+        color: 'red',
+        textAlign: 'center',
+        marginTop: 20,
+    },
+    backButton: {
+        marginTop: 20,
+        padding: 12,
+        backgroundColor: '#3498db',
+        borderRadius: 8,
+        alignItems: 'center',
+    },
+    backButtonText: {
+        color: '#fff',
+        fontSize: 16,
+    },
 });
 
 export default LastOrder;
