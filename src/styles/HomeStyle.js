@@ -87,7 +87,14 @@ const styles = StyleSheet.create({
     // borderBottomWidth: 1,
     marginBottom: 10
   },
-  modalTitle: {
+  menuBar: {
+    backgroundColor: '#1A1A1A',
+    height: 60,
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 10,
   },
   headerName: {
     color: '#EEEEEE',

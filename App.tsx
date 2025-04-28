@@ -5,8 +5,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import Members from './src/screens/Members';
 import Home from './src/screens/Home';
 import OrderDetails from './src/screens/OrderDetails';
-import MapScreen from './src/screens/MapScreen';
-
+import LastOrder from './src/screens/LastOrder';
 const Stack = createNativeStackNavigator();
 
 const App = () => {
@@ -20,7 +19,7 @@ const App = () => {
         <Stack.Screen name='Members' component={Members} />
         <Stack.Screen name='Home' component={Home} options={{ headerShown: false }} />
         <Stack.Screen name="OrderDetails" component={OrderDetails} />
-        <Stack.Screen name="MapScreen" component={MapScreen} />
+        <Stack.Screen name="LastOrder" component={LastOrder} />
       </Stack.Navigator>
     </NavigationContainer>
   );

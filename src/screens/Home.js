@@ -4,7 +4,10 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import styles from '../styles/HomeStyle';
 import Icon from 'react-native-vector-icons/Ionicons';
+import Icons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
+import Sound from 'react-native-sound';
+import ses from "../assets/notification-for-orders-313025.mp3";
 
 const DriverHome = ({ navigation }) => {
   const [orders, setOrders] = useState([]);
@@ -20,8 +23,8 @@ const DriverHome = ({ navigation }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const navigations = useNavigation();
-  const [orderPrices, setOrderPrices] = useState(false);
-  
+  const [previousOrderIds, setPreviousOrderIds] = useState([]); // Önceki sipariş ID'lerini saklayacak array
+  const [menuBar, setMenuBar] = useState(false);
 
   const toggleAtWork = async () => {
     try {
@@ -44,7 +47,6 @@ const DriverHome = ({ navigation }) => {
       console.error("Error toggling atWork:", error);
     }
   };
-
 
   useEffect(() => {
     fetchDriverDetails();
@@ -81,6 +83,13 @@ const DriverHome = ({ navigation }) => {
     }
   };
 
+  let notificationSound = new Sound(ses, Sound.MAIN_BUNDLE, (error) => {
+    if (error) {
+      console.warn('Failed to load sound', error);
+    }
+  });
+
+
   const fetchOrders = async () => {
     setLoading(true);
     try {
@@ -97,12 +106,26 @@ const DriverHome = ({ navigation }) => {
         )
         : availableOrders;
 
+      // Yeni siparişleri tespit et
+      const currentOrderIds = filteredOrders.map(order => order._id);
+      const hasNewOrders = currentOrderIds.some(id => !previousOrderIds.includes(id));
+
+      if (hasNewOrders) {
+        // Eğer yeni sipariş varsa sesi çal
+        notificationSound.play((success) => {
+          if (!success) {
+            console.warn('Ses çalma hatası');
+          }
+        });
+      }
+
+      // Önceki sipariş ID'lerini güncelle
+      setPreviousOrderIds(currentOrderIds);
       setOrders(filteredOrders);
-      // fetchLimit();
 
     } catch (error) {
-      Alert.alert('Hata', 'Sifarişler alınırken bir hata oluştu.');
-      console.error("Error fetching orders: ", error);
+      Alert.alert('Hata', 'Siparişler alınırken bir hata oluştu.');
+      console.error("Siparişleri alırken hata: ", error);
     } finally {
       setLoading(false);
     }
@@ -173,12 +196,12 @@ const DriverHome = ({ navigation }) => {
             try {
               const token = await AsyncStorage.getItem('token');
               const driverId = driverDetails._id;
-  
+
               // Set onOrder to true
               await axios.put(`http://192.168.100.43:3000/api/drivers/${driverId}`, { onOrder: true }, {
                 headers: { 'Authorization': `Bearer ${token}` }
               });
-  
+
               // Take the order
               const takeOrderResponse = await axios.post('http://192.168.100.43:3000/api/taxis/takeOrder', {
                 requestId: order._id,
@@ -190,7 +213,7 @@ const DriverHome = ({ navigation }) => {
                   'Authorization': `Bearer ${token}`,
                 }
               });
-  
+
               await updateDriverLimit(driverId, order.price);
               await updateDriverDailyEarnings(driverId, order.price);
               await updateDriverDailyOrderCount(driverId)
@@ -282,22 +305,22 @@ const DriverHome = ({ navigation }) => {
     </TouchableOpacity>
   );
 
-  // if (loading) {
-  //   return <ActivityIndicator size="small" color="#0000ff" />;
-  // }
-
   const handleSelect = (location) => {
     setSelectedLocation(location);
     fetchOrders();
     setDropdownOpen(false);
   };
 
+  const goLastOrder = () => {
+    navigation.navigate('LastOrder');
+  }
+
   return (
     <View style={styles.container}>
-      {/* Header Component */}
       <View style={styles.headerContainer}>
         <View style={styles.infoDrivers}>
           <Text style={styles.headerName}>{driverDetails.firstName}</Text>
+          {/* <Icon onPress={() => setMenuBar(true)} name='menu' size={45} /> */}
           <Text style={styles.headerSubtitle}>
             Balans: {limit ? `${limit.toFixed(2)} ₼` : '0'}
           </Text>
@@ -309,6 +332,7 @@ const DriverHome = ({ navigation }) => {
           <Text onPress={() => setModalVisible(true)} style={styles.averageRatingText}>Ortalama Xal: {averageRating}</Text>
         </View>
       </View>
+      
       <Modal
         animationType="slide"
         transparent={true}
@@ -326,8 +350,6 @@ const DriverHome = ({ navigation }) => {
           </View>
         </View>
       </Modal>
-
-
 
       <View style={styles.locationSelector}>
         <TouchableOpacity
@@ -361,7 +383,7 @@ const DriverHome = ({ navigation }) => {
         )}
       </View>
       <TouchableOpacity onPress={toggleAtWork} style={styles.toggleButton}>
-        <Text style={styles.toggleButtonText}>{driverDetails.atWork ? 'İşdə' : 'İşdə Değil'}</Text>
+        <Text style={styles.toggleButtonText}>{driverDetails.atWork ? 'İşdəyəm' : 'İşdə Deyiləm'}</Text>
       </TouchableOpacity>
 
       <FlatList
@@ -371,6 +393,18 @@ const DriverHome = ({ navigation }) => {
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
       />
+
+      <View style={styles.menuBar}>
+        <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.menuItem}>
+          <Icon name="person" size={30} color="#fff" />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={goLastOrder} style={styles.menuItem}>
+          <Icons name="history" size={30} color="#fff" />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.navigate('Settings')} style={styles.menuItem}>
+          <Icon name="settings" size={30} color="#fff" />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };

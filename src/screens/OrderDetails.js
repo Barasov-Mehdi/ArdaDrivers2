@@ -14,8 +14,9 @@ const OrderDetails = ({ route, navigation }) => {
   const [isConfirmed, setIsConfirmed] = useState(false);
 
   useEffect(() => {
-    let interval = setInterval(() => {
-      checkOrderStatus(order.driverId);
+    const interval = setInterval(() => {
+      checkOrderStatus(order._id);
+      cancelOrderStatus();
     }, 3000);
 
     return () => clearInterval(interval);
@@ -66,9 +67,10 @@ const OrderDetails = ({ route, navigation }) => {
     }
   };
 
-  const checkOrderStatus = async (driverId) => {
+  const cancelOrderStatus = async () => {
     try {
       const token = await AsyncStorage.getItem('token');
+      const driverId = await AsyncStorage.getItem('driverId'); // Ensure driverId is fetched here
       const response = await axios.get(`http://192.168.100.43:3000/api/drivers/${driverId}/onOrderStatus`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -84,7 +86,34 @@ const OrderDetails = ({ route, navigation }) => {
         }
       }
     } catch (error) {
-      console.error('Sipariş durumu kontrol hatası:', error.message);
+      console.error('Order status cancellation error:', error.message);
+    }
+  };
+
+
+
+
+
+  const checkOrderStatus = async (orderId) => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      const response = await axios.get(`http://192.168.100.43:3000/api/taxis/order/${orderId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.status === 200) {
+        setIsConfirmed(response.data.isConfirmed);
+      }
+    } catch (error) {
+      if (error.response) {
+        console.error('Sipariş durumu kontrol hatası:', error.response.data);
+        Alert.alert('Hata', `Hata mesajı: ${error.response.data.message}`);
+      } else {
+        console.error('Hata:', error.message);
+        Alert.alert('Hata', 'Bir hata oluşdu.');
+      }
     }
   };
 
