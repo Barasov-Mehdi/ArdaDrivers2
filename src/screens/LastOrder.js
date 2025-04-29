@@ -1,120 +1,302 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, Alert, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, TextInput, StyleSheet, ScrollView, Linking } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import haversine from 'haversine';
 
-const LastOrder = ({ navigation }) => {
-    const [lastOrder, setLastOrder] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+const LastOrder = ({ route, navigation }) => {
+    const { orderId } = route.params;
+    const [orderData, setOrderData] = useState(null);
+    const [time, setTime] = useState('');
+    const [distance, setDistance] = useState(null);
+    const [totalPrice, setTotalPrice] = useState(0);
+    const [coordinates, setCoordinates] = useState(null);
+    const [isConfirmed, setIsConfirmed] = useState(false);
+
+    const fetchOrders = async () => {
+        try {
+            const token = await AsyncStorage.getItem('token');
+            const response = await axios.get('http://192.168.100.43:3000/api/taxis/requests', {
+                headers: { 'Authorization': `Bearer ${token}` },
+            });
+
+            const data = response.data;
+            const foundOrder = data.find(item => item._id === orderId);
+
+            if (foundOrder) {
+                setOrderData(foundOrder);
+            } else {
+                console.log('Sipariş bulunamadı');
+            }
+        } catch (error) {
+            console.error('Error fetching orders:', error);
+            Alert.alert('Hata', 'Siparişler alınırken hata oluştu');
+        }
+    };
 
     useEffect(() => {
-        fetchLastOrder();
-    }, []);
+        if (orderId) fetchOrders();
+    }, [orderId]);
 
-    const fetchLastOrder = async () => {
+
+    const handleCompleteOrder = async () => {
         try {
             const token = await AsyncStorage.getItem('token');
             const driverId = await AsyncStorage.getItem('driverId');
 
-            const response = await axios.get(`http://192.168.100.43:3000/api/drivers/${driverId}/last-order`, {
-                headers: { 'Authorization': `Bearer ${token}` }
+            // Calling the endpoint to set onOrder to false
+            const response = await axios.put(`http://192.168.100.43:3000/api/drivers/${driverId}`, { onOrder: false }, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                }
             });
 
-            setLastOrder(response.data);
+            updateDriverDailyEarnings(driverId, order.price);
+            updateDriverDailyOrderCount(driverId);
+
+            Alert.alert('Başarılı', 'Sifariş tamamlandı.');
+            navigation.goBack(); // Optionally navigate back to the previous screen
+
         } catch (error) {
-            setError('Son sipariş alınırken bir hata oluştu.');
-            console.error("Son sipariş hata: ", error);
-        } finally {
-            setLoading(false);
+            console.error('Sipariş tamamlama hatası:', error);
+            Alert.alert('Hata', 'Sipariş tamamlarken bir hata oluştu.');
         }
     };
 
-    if (loading) return <Text style={styles.loadingText}>Yükleniyor...</Text>;
-    if (error) return <Text style={styles.errorText}>{error}</Text>;
+    const handleUpdatePrice = async () => {
+        if (!time || isNaN(time)) {
+            return;
+        }
 
-    if (!lastOrder) {
-        return <Text style={styles.infoText}>Henüz bir sipariş yok.</Text>;
-    }
+        try {
+            const token = await AsyncStorage.getItem('token');
+            const driverId = await AsyncStorage.getItem('driverId');
+
+            const payload = {
+                requestId: order._id,
+                time: parseFloat(time),
+                driverId,
+            };
+
+            const response = await axios.post('http://192.168.100.43:3000/api/taxis/updatePrice', payload, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+
+            setTime('');
+        } catch (error) {
+            console.error('Güncelleme hatası:', error);
+            const errorMessage = error.response ? error.response.data.message : 'Qiymət güncellenirken bir hata oluşdu.';
+            Alert.alert('Hata', errorMessage);
+        }
+    };
+
+    const handleOpenMap = (address) => {
+        const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+        Linking.openURL(url).catch((err) => {
+            console.error('Error opening maps:', err);
+            Alert.alert('Hata', 'Harita açarken bir hata oluştu.');
+        });
+    };
 
     return (
-        <ScrollView contentContainerStyle={styles.container}>
-            <Text style={styles.header}>Son Sipariş Detayları</Text>
-            <InfoContainer title="Müştəri Adresi" value={lastOrder.currentAddress} />
-            <InfoContainer title="Gedilecek Adres" value={lastOrder.destinationAddress} />
-            <InfoContainer title="Ad" value={lastOrder.name} />
-            <InfoContainer title="Telefon" value={lastOrder.tel} />
-            <InfoContainer title="Qiymet" value={`${lastOrder.price.toFixed(2)} AZN`} />
+        <View style={styles.container}>
+            <ScrollView contentContainerStyle={styles.scrollViewContent}>
+                <Text style={styles.header}>Sifariş Detalları</Text>
 
-            <TouchableOpacity
-                style={styles.backButton}
-                onPress={() => navigation.goBack()}
-            >
-                <Text style={styles.backButtonText}>Geri Dön</Text>
-            </TouchableOpacity>
-        </ScrollView>
+                {orderData ? (
+                    <>
+                        <TouchableOpacity style={styles.orderInfos} onPress={() => handleOpenMap(orderData.currentAddress)}>
+                            <InfoContainer icon="location-on" title="Müştəri ünvanı" value={orderData.currentAddress} />
+                            <InfoContainer title="Müştəri Kordinatı" value={`${orderData.coordinates.latitude},${orderData.coordinates.longitude}`} />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity style={styles.orderInfos} onPress={() => handleOpenMap(orderData.destinationAddress)}>
+                            <InfoContainer title="Varış Noktası" value={orderData.destinationAddress} />
+                        </TouchableOpacity>
+
+                        <InfoContainer title="Saat" value={orderData.time || 'Bilinmiyor'} />
+                        <InfoContainer title="Alındı mı?" value={orderData.isTaken ? 'Evet' : 'Hayır'} />
+                        <InfoContainer title="Onaylandı mı?" value={orderData.isConfirmed ? 'Evet' : 'Hayır'} />
+
+                        <InfoContainer title="Ek Bilgi" value={orderData.additionalInfo || 'Yok'} />
+                        <InfoContainer title="Müşteri Adı" value={orderData.name || 'Yok'} />
+                        <InfoContainer title="Müşteri Telefonu" value={orderData.tel || 'Yok'} />
+
+                        <InfoContainer title="Fiyat" value={`${orderData.price.toFixed(1) + ' ₼'}`} />
+
+                        <View style={styles.timeOptionsContainer}>
+                            {[1, 3, 5, 10, 15, 20].map((minute) => (
+                                <TouchableOpacity
+                                    key={minute}
+                                    style={[
+                                        styles.timeOptionButton,
+                                        time === minute.toString() && styles.timeOptionButtonSelected
+                                    ]}
+                                    onPress={() => {
+                                        setTime(minute.toString());
+                                        handleUpdatePrice(minute.toString());
+                                    }}
+                                >
+                                    <Text style={styles.timeOptionText}>{minute} {'\n'}Dəq</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+
+                        <TouchableOpacity style={styles.completeOrderButton} onPress={handleCompleteOrder}>
+                            <Text style={styles.completeOrderButtonText}>Sifarişi Tamamla</Text>
+                        </TouchableOpacity>
+                    </>
+                ) : (
+                    <Text style={styles.infoText}>Yüklənir...</Text>
+                )}
+            </ScrollView>
+            {/* <Text style={styles.dateText}>📅 Tarih: {new Date(orderData.date).toLocaleString()}</Text> */}
+
+        </View>
     );
-}
+};
 
-const InfoContainer = ({ title, value }) => {
+const InfoContainer = ({ icon, title, value }) => {
     return (
         <View style={styles.infoContainer}>
-            <Text style={styles.infoTitle}>{title}:</Text>
-            <Text style={styles.infoValue}>{value}</Text>
+            <Icon name={icon} size={28} color="#4A90E2" />
+            <View style={styles.textContainer}>
+                <Text style={styles.infoTitle}>{title}:</Text>
+                <Text style={styles.infoValue}>{value}</Text>
+            </View>
         </View>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
-        flexGrow: 1,
+        flex: 1,
+        backgroundColor: '#121212',
         padding: 16,
-        backgroundColor: '#f7f7f7',
     },
-    header: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        marginBottom: 16,
-        textAlign: 'center',
+    scrollViewContent: {
+        paddingBottom: 100,
     },
-    infoContainer: {
-        marginBottom: 12,
-        padding: 12,
-        backgroundColor: 'black',
-        borderRadius: 8,
-        shadowColor: '#000',
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 2,
-    },
-    infoTitle: {
-        fontWeight: 'bold',
-        fontSize: 16,
-    },
-    infoValue: {
-        fontSize: 14,
-        marginTop: 4,
-    },
-    loadingText: {
-        textAlign: 'center',
-        marginTop: 20,
-    },
-    errorText: {
-        color: 'red',
-        textAlign: 'center',
-        marginTop: 20,
-    },
-    backButton: {
-        marginTop: 20,
-        padding: 12,
-        backgroundColor: '#3498db',
-        borderRadius: 8,
+    completeOrderButton: {
+        backgroundColor: '#4CAF50', // Green color for the button
+        padding: 15,
+        borderRadius: 5,
         alignItems: 'center',
+        marginTop: 20,
     },
-    backButtonText: {
+    completeOrderButtonText: {
+        color: 'white',
+        fontSize: 18,
+        fontWeight: 'bold',
+    },
+    timeOptionsContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginVertical: 20,
+        paddingHorizontal: 1,
+    },
+    timeOptionButton: {
+        backgroundColor: '#222', // Normal düymə rengi
+        paddingVertical: 10,
+        paddingHorizontal: 10,
+        borderRadius: 12,
+        margin: 5,
+        borderWidth: 1,
+        borderColor: '#4CAF50', // Yaşıl kontur
+    },
+    timeOptionButtonSelected: {
+        backgroundColor: '#4CAF50', // Seçilən düymənin arxa fonu (yaşıl)
+    },
+    timeOptionText: {
         color: '#fff',
         fontSize: 16,
+        fontWeight: '600',
+        textAlign: 'center',
+    },
+
+    header: {
+        fontSize: 26,
+        fontWeight: 'bold',
+        color: '#FCD34D',
+        textAlign: 'center',
+        marginVertical: 16,
+    },
+    circle: {
+        width: 16,
+        height: 16,
+        borderRadius: 8,
+        marginRight: 8,
+    },
+    statusText: {
+        fontSize: 16,
+        color: 'white',
+        paddingVertical: 12,
+        paddingHorizontal: 8,
+    },
+    orderInfos: {
+        backgroundColor: '#1F1F1F',
+        borderRadius: 12,
+        padding: 12,
+        marginVertical: 8,
+    },
+    orderInfos2: {
+        backgroundColor: '#1F1F1F',
+        borderRadius: 12,
+        padding: 12,
+        marginBottom: 12,
+    },
+    infoContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#262626',
+        borderRadius: 12,
+        padding: 12,
+        marginVertical: 6,
+    },
+    textContainer: {
+        marginLeft: 12,
+        flex: 1,
+    },
+    infoTitle: {
+        fontSize: 14,
+        color: '#A1A1AA',
+    },
+    infoValue: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#F4F4F5',
+    },
+    priceInput: {
+        backgroundColor: '#1F2937',
+        color: '#FFF',
+        padding: 12,
+        borderRadius: 10,
+        fontSize: 16,
+        marginVertical: 12,
+    },
+    button: {
+        flexDirection: 'row',
+        backgroundColor: '#22C55E',
+        paddingVertical: 14,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 8,
+        marginTop: 10,
+    },
+    buttonText: {
+        color: '#FFF',
+        fontWeight: 'bold',
+        fontSize: 16,
+    },
+    infoText: {
+        color: '#FFF',
+        fontSize: 16,
+        textAlign: 'center',
+        marginTop: 20,
     },
 });
 

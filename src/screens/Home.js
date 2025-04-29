@@ -25,6 +25,8 @@ const DriverHome = ({ navigation }) => {
   const navigations = useNavigation();
   const [previousOrderIds, setPreviousOrderIds] = useState([]); // Önceki sipariş ID'lerini saklayacak array
   const [menuBar, setMenuBar] = useState(false);
+  const [atWork, setAtWork] = useState(false);
+  const [lastOrderİd, setLastOrderİd] = useState('');
 
   const toggleAtWork = async () => {
     try {
@@ -38,6 +40,8 @@ const DriverHome = ({ navigation }) => {
       await axios.put(`http://192.168.100.43:3000/api/drivers/${driverId}`, { atWork: newAtWorkStatus }, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+
+      setAtWork(newAtWorkStatus);
 
       // Update state locally
       setDriverDetails(prevState => ({ ...prevState, atWork: newAtWorkStatus }));
@@ -54,8 +58,8 @@ const DriverHome = ({ navigation }) => {
 
   useEffect(() => {
     fetchOrders();
-
-    const intervalId = setInterval(fetchOrders, 8000);
+    // fetchDriverDetails();
+    const intervalId = setInterval(fetchOrders, 5000);
     return () => clearInterval(intervalId);
   }, [selectedLocation]);
 
@@ -76,6 +80,7 @@ const DriverHome = ({ navigation }) => {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         setDriverDetails(response.data);
+
         setDriverIds(driverId);
       }
     } catch (error) {
@@ -214,17 +219,16 @@ const DriverHome = ({ navigation }) => {
                 }
               });
 
-              // Yeni sipariş ID'sini kaydet
-              await axios.put(`http://192.168.100.43:3000/api/drivers/${driverId}`, { lastOrderId: order._id }, {
+              // Include lastOrderIds
+              await axios.put(`http://192.168.100.43:3000/api/drivers/${driverId}`, { lastOrderIds: [order._id] }, {
                 headers: { 'Authorization': `Bearer ${token}` }
               });
 
               await updateDriverLimit(driverId, order.price);
-              await updateDriverDailyEarnings(driverId, order.price);
-              await updateDriverDailyOrderCount(driverId);
-              fetchDriverDetails();
+              await fetchDriverDetails();
               fetchLimit();
               setOrders(orders.filter(o => o._id !== order._id));
+
               navigation.navigate('OrderDetails', { order });
             } catch (error) {
               Alert.alert('Hata', 'Sipariş alınırken bir hata oluştu.');
@@ -237,7 +241,6 @@ const DriverHome = ({ navigation }) => {
     );
   };
 
-  // Update driver's balance based on the order price
   const updateDriverLimit = async (driverId, orderPrice) => {
     try {
       const token = await AsyncStorage.getItem('token');
@@ -263,30 +266,6 @@ const DriverHome = ({ navigation }) => {
     } catch (error) {
       Alert.alert('Hata', 'Sürücü bakiyesi güncellenirken bir hata oluştu.');
       console.error("Limit Update Error: ", error.message);
-    }
-  };
-
-  const updateDriverDailyEarnings = async (driverId, orderPrice) => {
-    try {
-      const token = await AsyncStorage.getItem('token');
-      await axios.put(`http://192.168.100.43:3000/api/drivers/${driverId}/updateDailyEarnings`, { earnings: orderPrice }, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-    } catch (error) {
-      Alert.alert('Hata', 'Sürücü günlük kazanç güncellenirken bir hata oluştu.');
-      console.error("Update Daily Earnings Error: ", error.message);
-    }
-  };
-
-  const updateDriverDailyOrderCount = async (driverId) => {
-    try {
-      const token = await AsyncStorage.getItem('token');
-      await axios.put(`http://192.168.100.43:3000/api/drivers/${driverId}/updateOrderCount`, {}, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-    } catch (error) {
-      Alert.alert('Hata', 'Sürücü sipariş sayısını güncellerken bir hata oluştu.');
-      console.error("Update Error: ", error.message);
     }
   };
 
@@ -316,9 +295,24 @@ const DriverHome = ({ navigation }) => {
     setDropdownOpen(false);
   };
 
-  const goLastOrder = () => {
-    navigation.navigate('LastOrder');
-  }
+  const goLastOrderId = async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      const driverId = await AsyncStorage.getItem('driverId');
+
+      const response = await axios.get(`http://192.168.100.43:3000/api/drivers/profile/${driverId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const lastOrderIds = response.data.lastOrderIds;
+      const lastId = lastOrderIds[lastOrderIds.length - 1]
+      navigation.navigate('LastOrder', { orderId: lastId });
+
+    } catch (error) {
+      Alert.alert('Hata', 'Son sipariş bilgileri alınırken bir hata oluştu.');
+      console.error('Error fetching last order:', error);
+    }
+  };
+
 
   return (
     <View style={styles.container}>
@@ -387,27 +381,34 @@ const DriverHome = ({ navigation }) => {
           </View>
         )}
       </View>
-      <TouchableOpacity onPress={toggleAtWork} style={styles.toggleButton}>
+      <TouchableOpacity onPress={toggleAtWork} style={{
+        backgroundColor: driverDetails.atWork ? '#0155D8' : 'red',
+        padding: 10,
+        borderRadius: 8,
+      }}>
         <Text style={styles.toggleButtonText}>{driverDetails.atWork ? 'İşdəyəm' : 'İşdə Deyiləm'}</Text>
       </TouchableOpacity>
 
-      <FlatList
-        data={orders}
-        renderItem={renderItem}
-        keyExtractor={item => item._id}
-        contentContainerStyle={styles.listContainer}
-        showsVerticalScrollIndicator={false}
-      />
+      {atWork && (
+        <FlatList
+          data={orders}
+          renderItem={renderItem}
+          keyExtractor={(item) => item._id}
+          contentContainerStyle={styles.listContainer}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
+
+      {!atWork && (
+        <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: '60%' }}>
+          <Text style={{ fontSize: 25 }}>Siz İşdə deyilsiniz</Text>
+        </View>
+      )
+      }
 
       <View style={styles.menuBar}>
-        <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.menuItem}>
-          <Icon name="person" size={30} color="#fff" />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={goLastOrder} style={styles.menuItem}>
+        <TouchableOpacity onPress={goLastOrderId} style={{ backgroundColor: '#1A1A1A', padding: 15, borderRadius: 15, marginLeft: 5, marginRight: 5 }}>
           <Icons name="history" size={30} color="#fff" />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => navigation.navigate('Settings')} style={styles.menuItem}>
-          <Icon name="settings" size={30} color="#fff" />
         </TouchableOpacity>
       </View>
     </View>

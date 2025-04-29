@@ -59,8 +59,6 @@ const OrderDetails = ({ route, navigation }) => {
     }
   };
 
-
-
   useEffect(() => {
     if (order.destinationAddress) {
       fetchCoordinates(order.destinationAddress);
@@ -193,6 +191,9 @@ const OrderDetails = ({ route, navigation }) => {
         }
       });
 
+      updateDriverDailyEarnings(driverId, order.price);
+      updateDriverDailyOrderCount(driverId);
+
       Alert.alert('Başarılı', 'Sifariş tamamlandı.');
       navigation.goBack(); // Optionally navigate back to the previous screen
 
@@ -220,6 +221,30 @@ const OrderDetails = ({ route, navigation }) => {
     }
   };
 
+  const updateDriverDailyEarnings = async (driverId, orderPrice) => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      await axios.put(`http://192.168.100.43:3000/api/drivers/${driverId}/updateDailyEarnings`, { earnings: orderPrice }, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+    } catch (error) {
+      Alert.alert('Hata', 'Sürücü günlük kazanç güncellenirken bir hata oluştu.');
+      console.error("Update Daily Earnings Error: ", error.message);
+    }
+  };
+
+  const updateDriverDailyOrderCount = async (driverId) => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      await axios.put(`http://192.168.100.43:3000/api/drivers/${driverId}/updateOrderCount`, {}, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+    } catch (error) {
+      Alert.alert('Hata', 'Sürücü sipariş sayısını güncellerken bir hata oluştu.');
+      console.error("Update Error: ", error.message);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollViewContent}>
@@ -243,14 +268,14 @@ const OrderDetails = ({ route, navigation }) => {
               <InfoContainer icon="location-on" title="Gediləcək Ünvan" value={order.destinationAddress} />
             </TouchableOpacity>
 
-            <InfoContainer icon="person" title="Sifaris" value={order.additionalInfo || 'Yox'} />
+            <InfoContainer icon="message" title="Əlavə məlumat" value={order.additionalInfo || 'Yoxdu'} />
             <InfoContainer icon="person" title="Ad" value={order.name || 'Yox'} />
             <InfoContainer icon="phone" title="Tel" value={order.tel || 'Yox'} />
 
             <InfoContainer icon="attach-money" title="Ümumi Qiymət" value={order.price.toFixed(1) + ' ₼'} />
 
             <View style={styles.timeOptionsContainer}>
-              {[4, 8, 12, 16].map((minute) => (
+              {[1, 3, 5, 10, 15, 20].map((minute) => (
                 <TouchableOpacity
                   key={minute}
                   style={[
@@ -262,7 +287,7 @@ const OrderDetails = ({ route, navigation }) => {
                     handleUpdatePrice(minute.toString());
                   }}
                 >
-                  <Text style={styles.timeOptionText}>{minute} dəq</Text>
+                  <Text style={styles.timeOptionText}>{minute} {'\n'}Dəq</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -317,7 +342,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginVertical: 20,
-    paddingHorizontal: 2,
+    paddingHorizontal: 1,
   },
   timeOptionButton: {
     backgroundColor: '#222', // Normal düymə rengi

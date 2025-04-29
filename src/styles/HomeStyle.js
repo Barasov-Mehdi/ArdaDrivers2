@@ -88,11 +88,11 @@ const styles = StyleSheet.create({
     marginBottom: 10
   },
   menuBar: {
-    backgroundColor: '#1A1A1A',
+    
     height: 60,
     width: '100%',
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 10,
   },
