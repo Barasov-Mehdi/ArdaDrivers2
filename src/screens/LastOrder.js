@@ -7,12 +7,12 @@ import haversine from 'haversine';
 
 const LastOrder = ({ route, navigation }) => {
     const { orderId } = route.params;
-    const [orderData, setOrderData] = useState(null);
     const [time, setTime] = useState('');
     const [distance, setDistance] = useState(null);
     const [totalPrice, setTotalPrice] = useState(0);
     const [coordinates, setCoordinates] = useState(null);
     const [isConfirmed, setIsConfirmed] = useState(false);
+    const [orderData, setOrderData] = useState(null);
 
     const fetchOrders = async () => {
         try {
@@ -39,6 +39,171 @@ const LastOrder = ({ route, navigation }) => {
         if (orderId) fetchOrders();
     }, [orderId]);
 
+    useEffect(() => {
+        const interval = setInterval(() => {
+            checkOrderStatus(orderId);
+            handleOrderConfirmation(orderId);
+            cancelOrderStatus();
+        }, 3000);
+
+        return () => clearInterval(interval);
+    }, [orderId]);
+
+    const handleOrderConfirmation = async (orderId) => {
+        try {
+            const token = await AsyncStorage.getItem('token');
+            const driverId = await AsyncStorage.getItem('driverId'); // giriş yapan şoförün ID'si
+
+            const response = await axios.get(`http://192.168.100.43:3000/api/taxis/order/${orderId}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+
+            if (response.status === 200) {
+                const order = response.data;
+                const confirmedDriverId = order.driverId; // siparişin içine kaydedilen onaylı şoför id'si
+
+                if (confirmedDriverId) { // Eğer siparişte bir onaylı şoför kaydedilmişse
+                    if (driverId === confirmedDriverId) {
+                        console.log('Bu sipariş için onaylanan şoförsün. Sayfada kal.');
+                        // Burada kal, bir şey yapma
+                    } else {
+                        console.log('Bu sipariş için onaylanmadın. Home ekranına yönlendiriliyorsun.');
+                        navigation.navigate('Home');
+                    }
+                }
+            }
+        } catch (error) {
+            if (error.response) {
+                console.error('Sipariş durumu kontrol hatası:', error.response.data);
+                Alert.alert('Hata', `Hata mesajı: ${error.response.data.message}`);
+            } else {
+                console.error('Hata:', error.message);
+                Alert.alert('Hata', 'Bir hata oluştu.');
+            }
+        }
+    };
+
+    useEffect(() => {
+        if (orderId.destinationAddress) {
+            fetchCoordinates(orderId.destinationAddress);
+        }
+    }, [orderId.destinationAddress]);
+
+    useEffect(() => {
+        if (coordinates && order.coordinates) {
+            calculateDistance(coordinates, orderId.coordinates);
+        }
+    }, [coordinates, orderId.coordinates]);
+
+    useEffect(() => {
+        if (distance !== null) {
+            const pricePerKilometer = 0.60;
+            const calculatedPrice = (distance / 1000) * pricePerKilometer;
+            setTotalPrice(calculatedPrice);
+        }
+    }, [distance]);
+
+    const calculateDistance = (coords1, coords2) => {
+        const start = { latitude: coords1.lat, longitude: coords1.lng };
+        const end = { latitude: coords2.latitude, longitude: coords2.longitude };
+
+        const distanceInMeters = haversine(start, end, { unit: 'meter' });
+        setDistance(distanceInMeters);
+    };
+
+    const fetchCoordinates = async (address) => {
+        const apiKey = 'kNe1BL5qTg94P6U2Jp5EugvlKnw8BDJSG-eC7oQMd_U';
+        try {
+            const response = await axios.get(`https://geocode.search.hereapi.com/v1/geocode`, {
+                params: {
+                    q: address,
+                    apiKey,
+                },
+            });
+            const location = response.data.items[0].position;
+            setCoordinates(location);
+        } catch (error) {
+            console.error('Koordinat alma hatası:', error);
+            Alert.alert('Hata', 'Koordinatlar alınarkən bir hata oluşdu.');
+        }
+    };
+
+    const cancelOrderStatus = async () => {
+        try {
+            const token = await AsyncStorage.getItem('token');
+            const driverId = await AsyncStorage.getItem('driverId'); // Ensure driverId is fetched here
+            const response = await axios.get(`http://192.168.100.43:3000/api/drivers/${driverId}/onOrderStatus`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+
+            if (response.status === 200) {
+                if (response.data.onOrder === false) {
+                    navigation.reset({
+                        index: 0,
+                        routes: [{ name: 'Home' }],
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('Order status cancellation error:', error.message);
+        }
+    };
+
+    const checkOrderStatus = async (orderId) => {
+        try {
+            const token = await AsyncStorage.getItem('token');
+            const response = await axios.get(`http://192.168.100.43:3000/api/taxis/order/${orderId}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+
+            if (response.status === 200) {
+                setIsConfirmed(response.data.isConfirmed);
+            }
+        } catch (error) {
+            if (error.response) {
+                console.error('Sipariş durumu kontrol hatası:', error.response.data);
+                Alert.alert('Hata', `Hata mesajı: ${error.response.data.message}`);
+            } else {
+                console.error('Hata:', error.message);
+                Alert.alert('Hata', 'Bir hata oluşdu.');
+            }
+        }
+    };
+
+    // const handleUpdatePrice = async () => {
+    //     if (!time || isNaN(time)) {
+    //         return;
+    //     }
+
+    //     try {
+    //         const token = await AsyncStorage.getItem('token');
+    //         const driverId = await AsyncStorage.getItem('driverId');
+
+    //         const payload = {
+    //             requestId: orderId._id,
+    //             time: parseFloat(time),
+    //             driverId,
+    //         };
+
+    //         const response = await axios.post('http://192.168.100.43:3000/api/taxis/updatePrice', payload, {
+    //             headers: {
+    //                 'Authorization': `Bearer ${token}`,
+    //             },
+    //         });
+
+    //         setTime('');
+    //     } catch (error) {
+    //         console.error('Güncelleme hatası:', error);
+    //         const errorMessage = error.response ? error.response.data.message : 'Qiymət güncellenirken bir hata oluşdu.';
+    //         Alert.alert('Hata', errorMessage);
+    //     }
+    // };
 
     const handleCompleteOrder = async () => {
         try {
@@ -52,8 +217,8 @@ const LastOrder = ({ route, navigation }) => {
                 }
             });
 
-            updateDriverDailyEarnings(driverId, order.price);
-            updateDriverDailyOrderCount(driverId);
+            updateDriverDailyEarnings(orderData.driverId, orderData.price);
+            updateDriverDailyOrderCount(orderData.driverId);
 
             Alert.alert('Başarılı', 'Sifariş tamamlandı.');
             navigation.goBack(); // Optionally navigate back to the previous screen
@@ -61,35 +226,6 @@ const LastOrder = ({ route, navigation }) => {
         } catch (error) {
             console.error('Sipariş tamamlama hatası:', error);
             Alert.alert('Hata', 'Sipariş tamamlarken bir hata oluştu.');
-        }
-    };
-
-    const handleUpdatePrice = async () => {
-        if (!time || isNaN(time)) {
-            return;
-        }
-
-        try {
-            const token = await AsyncStorage.getItem('token');
-            const driverId = await AsyncStorage.getItem('driverId');
-
-            const payload = {
-                requestId: order._id,
-                time: parseFloat(time),
-                driverId,
-            };
-
-            const response = await axios.post('http://192.168.100.43:3000/api/taxis/updatePrice', payload, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                },
-            });
-
-            setTime('');
-        } catch (error) {
-            console.error('Güncelleme hatası:', error);
-            const errorMessage = error.response ? error.response.data.message : 'Qiymət güncellenirken bir hata oluşdu.';
-            Alert.alert('Hata', errorMessage);
         }
     };
 
@@ -101,6 +237,40 @@ const LastOrder = ({ route, navigation }) => {
         });
     };
 
+    const getCircleColor = () => {
+        if (isConfirmed) {
+            return '#4CAF50'; // Yaşıl
+        } else if (orderId.isTaken) {
+            return '#FFC107'; // Sarı
+        } else {
+            return '#F44336'; // Qırmızı
+        }
+    };
+
+    const updateDriverDailyEarnings = async (driverId, orderPrice) => {
+        try {
+            const token = await AsyncStorage.getItem('token');
+            await axios.put(`http://192.168.100.43:3000/api/drivers/${driverId}/updateDailyEarnings`, { earnings: orderPrice }, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+        } catch (error) {
+            Alert.alert('Hata', 'Sürücü günlük kazanç güncellenirken bir hata oluştu.');
+            console.error("Update Daily Earnings Error: ", error.message);
+        }
+    };
+
+    const updateDriverDailyOrderCount = async (driverId) => {
+        try {
+            const token = await AsyncStorage.getItem('token');
+            await axios.put(`http://192.168.100.43:3000/api/drivers/${driverId}/updateOrderCount`, {}, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+        } catch (error) {
+            Alert.alert('Hata', 'Sürücü sipariş sayısını güncellerken bir hata oluştu.');
+            console.error("Update Error: ", error.message);
+        }
+    };
+
     return (
         <View style={styles.container}>
             <ScrollView contentContainerStyle={styles.scrollViewContent}>
@@ -108,26 +278,29 @@ const LastOrder = ({ route, navigation }) => {
 
                 {orderData ? (
                     <>
-                        <TouchableOpacity style={styles.orderInfos} onPress={() => handleOpenMap(orderData.currentAddress)}>
-                            <InfoContainer icon="location-on" title="Müştəri ünvanı" value={orderData.currentAddress} />
+                        <View style={{ flexDirection: 'row', borderRadius: 10, justifyContent: 'center', alignItems: 'center', backgroundColor: '#1F1F1F', marginBottom: 4 }}>
+                            <View style={[styles.circle, { backgroundColor: getCircleColor() }]} />
+                            <Text style={styles.statusText}>
+                                {isConfirmed ? 'Sifariş qəbul edildi.' : 'Sifariş Təsdiq gözləyir.'}
+                            </Text>
+                        </View>
+
+                        <TouchableOpacity style={styles.orderInfos} onPress={() => handleOpenMap(`${orderData.coordinates.latitude},${orderData.coordinates.longitude}`)}>
+                            <InfoContainer icon="location-on" title="Müştəri ünvanı" value={orderData.currentAddress.replace('Azərbaycan', '')} />
                             <InfoContainer title="Müştəri Kordinatı" value={`${orderData.coordinates.latitude},${orderData.coordinates.longitude}`} />
                         </TouchableOpacity>
 
-                        <TouchableOpacity style={styles.orderInfos} onPress={() => handleOpenMap(orderData.destinationAddress)}>
-                            <InfoContainer title="Varış Noktası" value={orderData.destinationAddress} />
+                        <TouchableOpacity style={styles.orderInfos2} onPress={() => handleOpenMap(orderData.destinationAddress)}>
+                            <InfoContainer icon="location-on" title="Gediləcək Ünvan" value={orderData.destinationAddress} />
                         </TouchableOpacity>
 
-                        <InfoContainer title="Saat" value={orderData.time || 'Bilinmiyor'} />
-                        <InfoContainer title="Alındı mı?" value={orderData.isTaken ? 'Evet' : 'Hayır'} />
-                        <InfoContainer title="Onaylandı mı?" value={orderData.isConfirmed ? 'Evet' : 'Hayır'} />
+                        <InfoContainer icon="message" title="Əlavə məlumat" value={orderData.additionalInfo || 'Yoxdu'} />
+                        <InfoContainer icon="person" title="Ad" value={orderData.name || 'Yox'} />
+                        <InfoContainer icon="phone" title="Tel" value={orderData.tel || 'Yox'} />
 
-                        <InfoContainer title="Ek Bilgi" value={orderData.additionalInfo || 'Yok'} />
-                        <InfoContainer title="Müşteri Adı" value={orderData.name || 'Yok'} />
-                        <InfoContainer title="Müşteri Telefonu" value={orderData.tel || 'Yok'} />
+                        <InfoContainer icon="attach-money" title="Ümumi Qiymət" value={orderData.price.toFixed(1) + ' ₼'} />
 
-                        <InfoContainer title="Fiyat" value={`${orderData.price.toFixed(1) + ' ₼'}`} />
-
-                        <View style={styles.timeOptionsContainer}>
+                        {/* <View style={styles.timeOptionsContainer}>
                             {[1, 3, 5, 10, 15, 20].map((minute) => (
                                 <TouchableOpacity
                                     key={minute}
@@ -143,18 +316,17 @@ const LastOrder = ({ route, navigation }) => {
                                     <Text style={styles.timeOptionText}>{minute} {'\n'}Dəq</Text>
                                 </TouchableOpacity>
                             ))}
-                        </View>
+                        </View> */}
 
                         <TouchableOpacity style={styles.completeOrderButton} onPress={handleCompleteOrder}>
                             <Text style={styles.completeOrderButtonText}>Sifarişi Tamamla</Text>
                         </TouchableOpacity>
+
                     </>
                 ) : (
-                    <Text style={styles.infoText}>Yüklənir...</Text>
+                    <Text style={styles.infoText}>Sifariş məlumatları tapılmadı.</Text>
                 )}
             </ScrollView>
-            {/* <Text style={styles.dateText}>📅 Tarih: {new Date(orderData.date).toLocaleString()}</Text> */}
-
         </View>
     );
 };
