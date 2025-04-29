@@ -16,11 +16,50 @@ const OrderDetails = ({ route, navigation }) => {
   useEffect(() => {
     const interval = setInterval(() => {
       checkOrderStatus(order._id);
+      handleOrderConfirmation(order._id);
       cancelOrderStatus();
     }, 3000);
 
     return () => clearInterval(interval);
   }, [order]);
+
+  const handleOrderConfirmation = async (orderId) => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      const driverId = await AsyncStorage.getItem('driverId'); // giriş yapan şoförün ID'si
+
+      const response = await axios.get(`http://192.168.100.43:3000/api/taxis/order/${orderId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.status === 200) {
+        const order = response.data;
+        const confirmedDriverId = order.driverId; // siparişin içine kaydedilen onaylı şoför id'si
+
+        if (confirmedDriverId) { // Eğer siparişte bir onaylı şoför kaydedilmişse
+          if (driverId === confirmedDriverId) {
+            console.log('Bu sipariş için onaylanan şoförsün. Sayfada kal.');
+            // Burada kal, bir şey yapma
+          } else {
+            console.log('Bu sipariş için onaylanmadın. Home ekranına yönlendiriliyorsun.');
+            navigation.navigate('Home');
+          }
+        }
+      }
+    } catch (error) {
+      if (error.response) {
+        console.error('Sipariş durumu kontrol hatası:', error.response.data);
+        Alert.alert('Hata', `Hata mesajı: ${error.response.data.message}`);
+      } else {
+        console.error('Hata:', error.message);
+        Alert.alert('Hata', 'Bir hata oluştu.');
+      }
+    }
+  };
+
+
 
   useEffect(() => {
     if (order.destinationAddress) {
@@ -76,7 +115,7 @@ const OrderDetails = ({ route, navigation }) => {
           'Authorization': `Bearer ${token}`,
         },
       });
-  
+
       if (response.status === 200) {
         if (response.data.onOrder === false) {
           navigation.reset({
@@ -89,10 +128,6 @@ const OrderDetails = ({ route, navigation }) => {
       console.error('Order status cancellation error:', error.message);
     }
   };
-
-
-
-
 
   const checkOrderStatus = async (orderId) => {
     try {
