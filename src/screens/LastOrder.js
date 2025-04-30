@@ -18,7 +18,7 @@ const LastOrder = ({ route, navigation }) => {
     const fetchOrders = async () => {
         try {
             const token = await AsyncStorage.getItem('token');
-            const response = await axios.get('http://192.168.100.43:3000/api/taxis/requests', {
+            const response = await axios.get('https://ardataxinodejs-f31280a8d5fc.herokuapp.com/api/taxis/requests', {
                 headers: { 'Authorization': `Bearer ${token}` },
             });
 
@@ -58,7 +58,7 @@ const LastOrder = ({ route, navigation }) => {
             const token = await AsyncStorage.getItem('token');
             const driverId = await AsyncStorage.getItem('driverId'); // giriş yapan şoförün ID'si
 
-            const response = await axios.get(`http://192.168.100.43:3000/api/taxis/order/${orderId}`, {
+            const response = await axios.get(`https://ardataxinodejs-f31280a8d5fc.herokuapp.com/api/taxis/order/${orderId}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                 },
@@ -138,7 +138,7 @@ const LastOrder = ({ route, navigation }) => {
         try {
             const token = await AsyncStorage.getItem('token');
             const driverId = await AsyncStorage.getItem('driverId'); // Ensure driverId is fetched here
-            const response = await axios.get(`http://192.168.100.43:3000/api/drivers/${driverId}/onOrderStatus`, {
+            const response = await axios.get(`https://ardataxinodejs-f31280a8d5fc.herokuapp.com/api/drivers/${driverId}/onOrderStatus`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                 },
@@ -160,7 +160,7 @@ const LastOrder = ({ route, navigation }) => {
     const checkOrderStatus = async (orderId) => {
         try {
             const token = await AsyncStorage.getItem('token');
-            const response = await axios.get(`http://192.168.100.43:3000/api/taxis/order/${orderId}`, {
+            const response = await axios.get(`https://ardataxinodejs-f31280a8d5fc.herokuapp.com/api/taxis/order/${orderId}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                 },
@@ -188,7 +188,7 @@ const LastOrder = ({ route, navigation }) => {
             const driverId = await AsyncStorage.getItem('driverId');
 
             // Calling the endpoint to set onOrder to false
-            const response = await axios.put(`http://192.168.100.43:3000/api/drivers/${driverId}`, { onOrder: false }, {
+            const response = await axios.put(`https://ardataxinodejs-f31280a8d5fc.herokuapp.com/api/drivers/${driverId}`, { onOrder: false }, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                 }
@@ -219,7 +219,7 @@ const LastOrder = ({ route, navigation }) => {
             console.log(newLimit)
             newLimit.toFixed(2)
 
-            const response = await axios.put(`http://192.168.100.43:3000/api/drivers/${driverId}/updateLimit`, { limit: newLimit }, {
+            const response = await axios.put(`https://ardataxinodejs-f31280a8d5fc.herokuapp.com/api/drivers/${driverId}/updateLimit`, { limit: newLimit }, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                 }
@@ -238,7 +238,7 @@ const LastOrder = ({ route, navigation }) => {
             const driverId = await AsyncStorage.getItem('driverId');
 
             if (driverId) {
-                const response = await axios.get(`http://192.168.100.43:3000/api/drivers/profile/${driverId}`, {
+                const response = await axios.get(`https://ardataxinodejs-f31280a8d5fc.herokuapp.com/api/drivers/profile/${driverId}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
 
@@ -273,7 +273,7 @@ const LastOrder = ({ route, navigation }) => {
     const updateDriverDailyEarnings = async (driverId, orderPrice) => {
         try {
             const token = await AsyncStorage.getItem('token');
-            await axios.put(`http://192.168.100.43:3000/api/drivers/${driverId}/updateDailyEarnings`, { earnings: orderPrice }, {
+            await axios.put(`https://ardataxinodejs-f31280a8d5fc.herokuapp.com/api/drivers/${driverId}/updateDailyEarnings`, { earnings: orderPrice }, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
         } catch (error) {
@@ -285,7 +285,7 @@ const LastOrder = ({ route, navigation }) => {
     const updateDriverDailyOrderCount = async (driverId) => {
         try {
             const token = await AsyncStorage.getItem('token');
-            await axios.put(`http://192.168.100.43:3000/api/drivers/${driverId}/updateOrderCount`, {}, {
+            await axios.put(`https://ardataxinodejs-f31280a8d5fc.herokuapp.com/api/drivers/${driverId}/updateOrderCount`, {}, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
         } catch (error) {

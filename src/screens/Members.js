@@ -32,7 +32,7 @@ const Members = () => {
 
         try {
             if (isLogin) {
-                const response = await axios.post('http://192.168.100.43:3000/api/drivers/login', {
+                const response = await axios.post('https://ardataxinodejs-f31280a8d5fc.herokuapp.com/api/drivers/login', {
                     email,
                     password,
                 });
@@ -51,7 +51,7 @@ const Members = () => {
                 }
             } else {
                 // Kayıt olma işlemleri burada
-                const response = await axios.post('http://192.168.100.43:3000/api/drivers/register', {
+                const response = await axios.post('https://ardataxinodejs-f31280a8d5fc.herokuapp.com/api/drivers/register', {
                     firstName,
                     lastName,
                     email,
