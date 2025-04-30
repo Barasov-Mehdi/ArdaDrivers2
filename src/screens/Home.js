@@ -24,9 +24,7 @@ const DriverHome = ({ navigation }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const navigations = useNavigation();
   const [previousOrderIds, setPreviousOrderIds] = useState([]); // Önceki sipariş ID'lerini saklayacak array
-  const [menuBar, setMenuBar] = useState(false);
   const [atWork, setAtWork] = useState(false);
-  const [lastOrderİd, setLastOrderİd] = useState('');
 
   const toggleAtWork = async () => {
     try {
@@ -58,7 +56,6 @@ const DriverHome = ({ navigation }) => {
 
   useEffect(() => {
     fetchOrders();
-    // fetchDriverDetails();
     const intervalId = setInterval(fetchOrders, 5000);
     return () => clearInterval(intervalId);
   }, [selectedLocation]);
@@ -93,7 +90,6 @@ const DriverHome = ({ navigation }) => {
       console.warn('Failed to load sound', error);
     }
   });
-
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -224,7 +220,7 @@ const DriverHome = ({ navigation }) => {
                 headers: { 'Authorization': `Bearer ${token}` }
               });
 
-              await updateDriverLimit(driverId, order.price);
+              // await updateDriverLimit(driverId, order.price);
               await fetchDriverDetails();
               fetchLimit();
               setOrders(orders.filter(o => o._id !== order._id));
@@ -241,33 +237,33 @@ const DriverHome = ({ navigation }) => {
     );
   };
 
-  const updateDriverLimit = async (driverId, orderPrice) => {
-    try {
-      const token = await AsyncStorage.getItem('token');
+  // const updateDriverLimit = async (driverId, orderPrice) => {
+  //   try {
+  //     const token = await AsyncStorage.getItem('token');
 
-      // Get the integer part of the order price
-      const integerPart = Math.floor(orderPrice);
+  //     // Get the integer part of the order price
+  //     const integerPart = Math.floor(orderPrice);
 
-      // Calculate deduction amount based on the integer part of the price
-      const deductionAmount = integerPart * 0.15;
+  //     // Calculate deduction amount based on the integer part of the price
+  //     const deductionAmount = integerPart * 0.15;
 
-      // Calculate new limit 
-      const newLimit = driverDetails.limit - deductionAmount;
-      newLimit.toFixed(2)
+  //     // Calculate new limit 
+  //     const newLimit = driverDetails.limit - deductionAmount;
+  //     newLimit.toFixed(2)
 
-      const response = await axios.put(`http://192.168.100.43:3000/api/drivers/${driverId}/updateLimit`, { limit: newLimit }, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        }
-      });
+  //     const response = await axios.put(`http://192.168.100.43:3000/api/drivers/${driverId}/updateLimit`, { limit: newLimit }, {
+  //       headers: {
+  //         'Authorization': `Bearer ${token}`,
+  //       }
+  //     });
 
-      // Update driver details in state
-      setDriverDetails(prevState => ({ ...prevState, limit: newLimit }));
-    } catch (error) {
-      Alert.alert('Hata', 'Sürücü bakiyesi güncellenirken bir hata oluştu.');
-      console.error("Limit Update Error: ", error.message);
-    }
-  };
+  //     // Update driver details in state
+  //     setDriverDetails(prevState => ({ ...prevState, limit: newLimit }));
+  //   } catch (error) {
+  //     Alert.alert('Hata', 'Sürücü bakiyesi güncellenirken bir hata oluştu.');
+  //     console.error("Limit Update Error: ", error.message);
+  //   }
+  // };
 
   const renderItem = ({ item }) => (
     <TouchableOpacity onPress={() => handleSelectOrder(item)} style={styles.orderCard}>

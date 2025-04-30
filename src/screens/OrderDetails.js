@@ -12,6 +12,7 @@ const OrderDetails = ({ route, navigation }) => {
   const [totalPrice, setTotalPrice] = useState(0);
   const [coordinates, setCoordinates] = useState(null);
   const [isConfirmed, setIsConfirmed] = useState(false);
+  const [driverDetails, setDriverDetails] = useState({});
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -22,6 +23,10 @@ const OrderDetails = ({ route, navigation }) => {
 
     return () => clearInterval(interval);
   }, [order]);
+
+  useEffect(() => {
+    fetchDriverDetails();
+  }, []);
 
   const handleOrderConfirmation = async (orderId) => {
     try {
@@ -179,6 +184,9 @@ const OrderDetails = ({ route, navigation }) => {
     }
   };
 
+
+
+
   const handleCompleteOrder = async () => {
     try {
       const token = await AsyncStorage.getItem('token');
@@ -193,6 +201,8 @@ const OrderDetails = ({ route, navigation }) => {
 
       updateDriverDailyEarnings(driverId, order.price);
       updateDriverDailyOrderCount(driverId);
+      updateDriverLimit(driverId, order.price);
+      fetchDriverDetails();
 
       Alert.alert('Başarılı', 'Sifariş tamamlandı.');
       navigation.goBack(); // Optionally navigate back to the previous screen
@@ -202,6 +212,55 @@ const OrderDetails = ({ route, navigation }) => {
       Alert.alert('Hata', 'Sipariş tamamlarken bir hata oluştu.');
     }
   };
+
+  const updateDriverLimit = async (driverId, orderPrice) => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+
+      const integerPart = Math.floor(orderPrice);
+
+      const deductionAmount = integerPart * 0.15;
+
+      const newLimit = driverDetails.limit - deductionAmount;
+      newLimit.toFixed(2)
+
+      const response = await axios.put(`http://192.168.100.43:3000/api/drivers/${driverId}/updateLimit`, { limit: newLimit }, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        }
+      });
+
+      setDriverDetails(prevState => ({ ...prevState, limit: newLimit }));
+    } catch (error) {
+      Alert.alert('Hata', 'Sürücü bakiyesi güncellenirken bir hata oluştu.');
+      console.error("Limit Update Error: ", error.message);
+    }
+  };
+
+  const fetchDriverDetails = async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      const driverId = await AsyncStorage.getItem('driverId');
+
+      if (driverId) {
+        const response = await axios.get(`http://192.168.100.43:3000/api/drivers/profile/${driverId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        console.log("Driver details:", response.data);
+        setDriverDetails(response.data);
+
+      }
+    } catch (error) {
+      console.error("Error fetching driver details: ", error);
+    }
+  };
+
+
+
+
+
+
 
   const handleOpenMap = (address) => {
     const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;

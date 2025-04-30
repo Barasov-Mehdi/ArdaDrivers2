@@ -13,7 +13,8 @@ const LastOrder = ({ route, navigation }) => {
     const [coordinates, setCoordinates] = useState(null);
     const [isConfirmed, setIsConfirmed] = useState(false);
     const [orderData, setOrderData] = useState(null);
-
+    const [driverDetails, setDriverDetails] = useState({});
+    
     const fetchOrders = async () => {
         try {
             const token = await AsyncStorage.getItem('token');
@@ -34,6 +35,9 @@ const LastOrder = ({ route, navigation }) => {
             Alert.alert('Hata', 'Siparişler alınırken hata oluştu');
         }
     };
+    useEffect(() => {
+        fetchDriverDetails();
+    }, []);
 
     useEffect(() => {
         if (orderId) fetchOrders();
@@ -176,34 +180,7 @@ const LastOrder = ({ route, navigation }) => {
         }
     };
 
-    // const handleUpdatePrice = async () => {
-    //     if (!time || isNaN(time)) {
-    //         return;
-    //     }
 
-    //     try {
-    //         const token = await AsyncStorage.getItem('token');
-    //         const driverId = await AsyncStorage.getItem('driverId');
-
-    //         const payload = {
-    //             requestId: orderId._id,
-    //             time: parseFloat(time),
-    //             driverId,
-    //         };
-
-    //         const response = await axios.post('http://192.168.100.43:3000/api/taxis/updatePrice', payload, {
-    //             headers: {
-    //                 'Authorization': `Bearer ${token}`,
-    //             },
-    //         });
-
-    //         setTime('');
-    //     } catch (error) {
-    //         console.error('Güncelleme hatası:', error);
-    //         const errorMessage = error.response ? error.response.data.message : 'Qiymət güncellenirken bir hata oluşdu.';
-    //         Alert.alert('Hata', errorMessage);
-    //     }
-    // };
 
     const handleCompleteOrder = async () => {
         try {
@@ -219,7 +196,8 @@ const LastOrder = ({ route, navigation }) => {
 
             updateDriverDailyEarnings(orderData.driverId, orderData.price);
             updateDriverDailyOrderCount(orderData.driverId);
-
+            updateDriverLimit(orderData.driverId, orderData.price);
+            fetchDriverDetails();
             Alert.alert('Başarılı', 'Sifariş tamamlandı.');
             navigation.goBack(); // Optionally navigate back to the previous screen
 
@@ -228,6 +206,51 @@ const LastOrder = ({ route, navigation }) => {
             Alert.alert('Hata', 'Sipariş tamamlarken bir hata oluştu.');
         }
     };
+
+    const updateDriverLimit = async (driverId, orderPrice) => {
+        try {
+            const token = await AsyncStorage.getItem('token');
+
+            const integerPart = Math.floor(orderPrice);
+
+            const deductionAmount = integerPart * 0.15;
+
+            const newLimit = driverDetails.limit - deductionAmount;
+            console.log(newLimit)
+            newLimit.toFixed(2)
+
+            const response = await axios.put(`http://192.168.100.43:3000/api/drivers/${driverId}/updateLimit`, { limit: newLimit }, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                }
+            });
+
+            setDriverDetails(prevState => ({ ...prevState, limit: newLimit }));
+        } catch (error) {
+            Alert.alert('Hata', 'Sürücü bakiyesi güncellenirken bir hata oluştu.');
+            console.error("Limit Update Error: ", error.message);
+        }
+    };
+
+    const fetchDriverDetails = async () => {
+        try {
+            const token = await AsyncStorage.getItem('token');
+            const driverId = await AsyncStorage.getItem('driverId');
+
+            if (driverId) {
+                const response = await axios.get(`http://192.168.100.43:3000/api/drivers/profile/${driverId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                console.log("Driver details:", response.data);
+                setDriverDetails(response.data);
+
+            }
+        } catch (error) {
+            console.error("Error fetching driver details: ", error);
+        }
+    };
+
 
     const handleOpenMap = (address) => {
         const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
