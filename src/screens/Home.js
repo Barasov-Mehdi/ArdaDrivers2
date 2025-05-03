@@ -23,7 +23,7 @@ const DriverHome = ({ navigation }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const navigations = useNavigation();
-  const [previousOrderIds, setPreviousOrderIds] = useState([]); // Önceki sipariş ID'lerini saklayacak array
+  const [previousOrderIds, setPreviousOrderIds] = useState([]); 
   const [atWork, setAtWork] = useState(false);
 
   // http://192.168.100.43:3000/
